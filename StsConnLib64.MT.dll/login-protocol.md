@@ -76,3 +76,83 @@ the STS channel — they are two different SRP variants sharing N/g.
 | CSrpClient state dispatch (m[5]) | `0x18002DE00` |
 | CSrpClient state-0 (salt+B parse + B<N validate) | `0x18002d4e0` |
 | base64 codec | `0x18001F310`, `0x180081610` |
+
+## CONFIRMED reply schema (2026-08-19, full RE of the parser)
+
+Disassembly of the LoginStart-reply handler (real entry `0x18000A350`) and the
+SRP state-0 parser (`0x18002d4e0`) pins the whole schema to certainty:
+
+1. **Envelope.** `reply.vtbl[0x60]()` fetches a **content object**; null → error
+   (client sets state 4). The literal tags `<Content>`/`</Content>` are present
+   in the binary. (List transactions like VerifiedIPList instead use
+   `<Reply type="array"><Items>…` — a different envelope per transaction type.)
+2. **Field.** `content.vtbl[0xe0](out, "KeyData", -1)` = `GetField("KeyData")`.
+3. **Encoding.** The `<KeyData>` value is **standard base64** (alphabet
+   `ABC…xyz0123456789+/`, present at VA `0x18012B200`; `Content-Transfer-Encoding:
+   base64`), decoded to a binary blob before the SRP parser (which reads binary
+   `u32` length prefixes).
+4. **Blob layout** (parser `0x18002d4e0`, exact-consume — total must equal blob
+   length or it fails):
+   ```
+   [u32 LE len1][salt = len1 bytes][u32 LE len2][B = len2 bytes]
+   ```
+5. **B validation.** B is read **big-endian** and checked **B < N** (`jns` →
+   error). Confirms **standard SRP-6a**, big-endian.
+
+A valid LoginStart reply body — **confirmed byte-for-byte against a live capture
+of the real server's own STS** (behavioral oracle) — has the root element
+**`<Reply>`** (NOT `<Content>`; the `<Content>` literal exists in the binary but
+is used elsewhere):
+
+```
+STS/1.0 200 OK\r\nl:<bodyLen>\r\ns:<seq>R\r\n\r\n<Reply>\n<KeyData>BASE64( [u32 LE saltLen][salt][u32 LE BLen][B big-endian] )</KeyData>\n</Reply>\n
+```
+
+The reply status line, `l:` (body byte count), and `s:<seq>R` (transaction code
+with the reply `R` marker) mirror the request; the `<KeyData>` value is standard
+base64 of the length-prefixed SRP blob.
+
+The outgoing client request that this provokes is
+`<Request><KeyData>BASE64([u32 LE ALen][A][u32 LE M1Len][M1])</KeyData></Request>`
+(request builder at `0x18000A4F0`+, field setter `0x1800296d0`).
+
+## The SRP is NCSoft's own, not OpenSSL's built-in
+
+`..\..\..\Services\Srp\Srp.cpp` (VA `0x18012CDF8`, referenced at `0x18002CFBD`)
+— NCSoft implemented SRP-6a themselves over OpenSSL 1.0.1i's **bignum + SHA**
+primitives (both SHA-1 and SHA-256 are linked). So the hash choice is NCSoft's,
+not OpenSSL's SRP default; it is resolved against the client's own M1 at wire
+time (ground truth), not assumed.
+
+## RTTI transaction map (reply parsers)
+
+`CLoginStartTxnNotify`, `CKeyDataTxnNotify`, `CLoginTokenStartTxnNotify`,
+`CTokenKeyDataTxnNotify`, and `CStsConnTxnNotifyOne<CRequestGameToken>` etc. —
+one `*TxnNotify` per STS transaction; the class-specific reply handler is the
+last vtable slot.
+
+## Client redirect (from the stock client's own launch params)
+
+The client is **100% stock** (the running `WildStar64.exe` + `StsConnLib64.MT.dll`
+are byte-identical to the pristine CDN 16042 install). It is redirected to a
+private server purely by its **own command-line parameters** — no binary patch,
+no injection:
+
+```
+WildStar64.exe /auth <host> /authNc <host> /lang <l> /patcher <host> /SettingsKey WildStar /realmDataCenterId 9
+```
+
+`/auth` and `/authNc` = the STS/auth host; STS is plaintext (a stock client
+accepts the redirect because there is no TLS/cert on the STS channel).
+
+## Reply status line: `STS/1.0 200  OK` (TWO spaces)
+
+The success status line is `STS/1.0 200  OK` — **two spaces** between `200` and
+`OK`. A single-space `STS/1.0 200 OK` is silently discarded by the client's
+reply parser for a real transaction (Connect/Ping keepalives tolerate it), so the
+transaction times out and retries, then surfaces as "NC Platform Error 15". Full
+success reply frame:
+
+```
+STS/1.0 200  OK\r\nl:<bodyLen>\r\ns:<seq>R\r\n\r\n<Reply>\n<KeyData>BASE64(blob)</KeyData>\n</Reply>\n
+```
