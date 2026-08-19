@@ -156,3 +156,60 @@ success reply frame:
 ```
 STS/1.0 200  OK\r\nl:<bodyLen>\r\ns:<seq>R\r\n\r\n<Reply>\n<KeyData>BASE64(blob)</KeyData>\n</Reply>\n
 ```
+
+---
+
+# SOLVED (2026-08-19): the STS SRP is WildStar's GAME SRP, read LITTLE-ENDIAN
+
+**Correction to the earlier "standard OpenSSL SRP, big-endian" reading above —
+that was wrong.** The STS SRP is *not* standard big-endian SRP-6a. It is
+WildStar's **game SRP**: every bignum is **little-endian**, hashes are twisted by
+**ReverseUInt32** (4-byte word-order reversal), and the session key is
+**interleaved**. Reading it big-endian is byte-order-inverted at every layer,
+which is why standard SRP never reproduced a single proof.
+
+Confirmed to certainty: the modulus + the entire key-derivation were recovered by
+using a **known-credential account's stored verifier as a ground-truth oracle**
+(`v = g^x mod N` must reproduce the stored value), and the real 16042 client's own
+proof then VERIFIES against a server implementing exactly this.
+
+## Parameters
+
+- **N** = the WildStar SRP prime, **interpreted little-endian**:
+  `E306EBC0…AAFEE` read as a little-endian byte array (NOT big-endian).
+- **g** = 2  (as the 4-byte LE constant `02 00 00 00` where it is hashed).
+- Byte helpers:
+  - `LeToBig(b)` = interpret bytes as an unsigned little-endian integer.
+  - `BigToLe(v)` = the integer's little-endian bytes.
+  - `ReverseUInt32(h)` = reverse the ORDER of the 4-byte words of `h`
+    (word[i] → position len−4−i·... i.e. `[w0 w1 … w7] → [w7 … w1 w0]`, words intact).
+
+## Key derivation (all values little-endian)
+
+```
+x  = LeToBig( ReverseUInt32( SHA256( salt || SHA256(username ":" password) ) ) )
+v  = g^x mod N                                   (verifier, stored little-endian)
+k  = LeToBig( ReverseUInt32( SHA256( N || g ) ) )
+B  = ( k*v + g^b ) mod N          (server ephemeral b; B sent as 128-byte LE)
+A  = g^a mod N                    (client ephemeral a; A sent little-endian)
+u  = LeToBig( ReverseUInt32( SHA256( A || B ) ) )
+S  = (A · v^u)^b mod N            (server)   =   (B − k·g^x)^(a + u·x) mod N  (client)
+K  = InterleaveSessionKey( LE128(S) )        (RFC-2945-style odd/even split, SHA256 each, interleave -> 64 bytes)
+M1 = SHA256( (H(N) XOR H(g)) || SHA256(username) || salt || A || B || K )     (client proof)
+M2 = SHA256( A || M1 || K )                                                    (server proof)
+```
+
+`InterleaveSessionKey(s)`: from the 128-byte LE `s`, take bytes from the end in
+odd/even positions into two halves, SHA256 each half, interleave the two digests
+byte-by-byte → the 64-byte session key.
+
+## Wire (recap, unchanged)
+
+- Envelope `<Reply>`; status line `STS/1.0 200  OK` (two spaces); `s:<seq>R`.
+- `<KeyData>` = base64 of a length-delimited blob:
+  - LoginStart reply: `[u32 LE saltLen][salt][u32 LE BLen][B]` (B = 128-byte LE).
+  - KeyData request (client): `[u32 ALen][A][u32 M1Len][M1]`.
+  - KeyData reply (server): `[u32 M2Len][M2]` (M2 = 32 bytes).
+
+This matches WildStar's game-channel SRP (the same `ReverseUInt32` + little-endian
++ interleave), so the STS and game channels share one SRP primitive.
