@@ -1,0 +1,53 @@
+{
+  "file": "StsConnLib64.MT.dll",
+  "size": 1899520,
+  "image_base": "0x180000000",
+  "entry_point": "0x180046894",
+  "machine": "0x8664",
+  "timestamp": 1464076522,
+  "subsystem": 2,
+  "sections": [
+    {
+      "name": ".text",
+      "va": "0x180001000",
+      "vsize": 1187388,
+      "rawsize": 1187840,
+      "exec": true
+    },
+    {
+      "name": ".rdata",
+      "va": "0x180123000",
+      "vsize": 312848,
+      "rawsize": 313344,
+      "exec": false
+    },
+    {
+      "name": ".data",
+      "va": "0x180170000",
+      "vsize": 1067136,
+      "rawsize": 294400,
+      "exec": false
+    },
+    {
+      "name": ".pdata",
+      "va": "0x180275000",
+      "vsize": 71364,
+      "rawsize": 71680,
+      "exec": false
+    },
+    {
+      "name": ".rsrc",
+      "va": "0x180287000",
+      "vsize": 1248,
+      "rawsize": 1536,
+      "exec": false
+    },
+    {
+      "name": ".reloc",
+      "va": "0x180288000",
+      "vsize": 29654,
+      "rawsize": 29696,
+      "exec": false
+    }
+  ]
+}

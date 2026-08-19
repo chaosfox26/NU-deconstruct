@@ -1,0 +1,11 @@
+va	mangled
+0x140C0F010	.?AVbad_alloc@std@@
+0x140C0F038	.?AVexception@std@@
+0x140C0F060	.?AVlogic_error@std@@
+0x140C0F088	.?AVlength_error@std@@
+0x140C0F0B0	.?AVout_of_range@std@@
+0x140C0F0D8	.?AVerror_category@std@@
+0x140C0F108	.?AV_Generic_error_category@std@@
+0x140C0F140	.?AV_Iostream_error_category@std@@
+0x140C0F178	.?AV_System_error_category@std@@
+0x140C0F7A0	.?AVtype_info@@

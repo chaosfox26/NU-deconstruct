@@ -1,0 +1,4 @@
+symbol	addr
+CreateStsConn	0x1800036b0
+FinalizeStsConnLib	0x180001140
+InitializeStsConnLib	0x1800010f0

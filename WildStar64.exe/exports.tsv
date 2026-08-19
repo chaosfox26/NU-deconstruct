@@ -1,0 +1,3 @@
+symbol	addr
+AmdPowerXpressRequestHighPerformance	0x140c1e4b4
+NvOptimusEnablement	0x140c1e49c

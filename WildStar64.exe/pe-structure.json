@@ -1,0 +1,67 @@
+{
+  "file": "WildStar64.exe",
+  "size": 13927576,
+  "image_base": "0x140000000",
+  "entry_point": "0x1400088c0",
+  "machine": "0x8664",
+  "timestamp": 1537224357,
+  "subsystem": 2,
+  "sections": [
+    {
+      "name": ".text",
+      "va": "0x140001000",
+      "vsize": 9792556,
+      "rawsize": 9793024,
+      "exec": true
+    },
+    {
+      "name": "BINK",
+      "va": "0x140958000",
+      "vsize": 3420,
+      "rawsize": 3584,
+      "exec": true
+    },
+    {
+      "name": ".rdata",
+      "va": "0x140959000",
+      "vsize": 2839220,
+      "rawsize": 2839552,
+      "exec": false
+    },
+    {
+      "name": ".data",
+      "va": "0x140c0f000",
+      "vsize": 1799016,
+      "rawsize": 329216,
+      "exec": false
+    },
+    {
+      "name": ".pdata",
+      "va": "0x140dc7000",
+      "vsize": 556884,
+      "rawsize": 557056,
+      "exec": false
+    },
+    {
+      "name": "_RDATA",
+      "va": "0x140e4f000",
+      "vsize": 33480,
+      "rawsize": 33792,
+      "exec": false
+    },
+    {
+      "name": ".rsrc",
+      "va": "0x140e58000",
+      "vsize": 212552,
+      "rawsize": 212992,
+      "exec": false
+    },
+    {
+      "name": ".reloc",
+      "va": "0x140e8c000",
+      "vsize": 151528,
+      "rawsize": 151552,
+      "exec": false
+    }
+  ]
+}
